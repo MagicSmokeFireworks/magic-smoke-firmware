@@ -1,26 +1,10 @@
-/*
- ******************************************************************************
-  Copyright (c) 2015 Particle Industries, Inc.  All rights reserved.
+// MAGIC SMOKE
 
-  This program is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation, either
-  version 3 of the License, or (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this program; if not, see <http://www.gnu.org/licenses/>.
-  ******************************************************************************
- */
-
-/* Includes ------------------------------------------------------------------*/
+// includes
 #include "application.h"
 #include "stdarg.h"
 
+// photon preproc setup stuff
 PRODUCT_ID(PLATFORM_ID);
 PRODUCT_VERSION(3);
 
@@ -28,63 +12,43 @@ PRODUCT_VERSION(3);
 STARTUP(System.enable(SYSTEM_FLAG_WIFITESTER_OVER_SERIAL1));
 #endif
 
+// semi auto system mode will connect to preconfigured wifi, but not cloud
 SYSTEM_MODE(SEMI_AUTOMATIC);
 
+// use external wifi antenna
 STARTUP(WiFi.selectAntenna(ANT_EXTERNAL));
 
+// define pin aliases
+#define fire0 D3
+#define fire1 D4
+#define fire2 D5
+#define fire3 D6
+#define fire4 D2
+#define fire5 D1
+#define fire6 D0
+#define fire7 TX
+
+#define sense0 A0
+#define sense1 A1
+#define sense2 A2
+#define sense3 A3
+#define sense4 A4
+#define sense5 A5
+#define sense6 DAC
+#define sense7 WKP
+
+#define senseswitch RX
+
+#define armsense D7
+
+// initialize tcp server/client info
 int serverPort = 8080;
 byte serverIP[] = {192, 168, 0, 102};
-
 TCPClient client;
-
 TCPServer server = TCPServer(23);
 TCPClient serverClient;
 
-/* This function is called once at start up ----------------------------------*/
-void setup()
-{
-    pinMode(D0, OUTPUT); // fire6
-    pinMode(D1, OUTPUT); // fire5
-    pinMode(D2, OUTPUT); // fire4
-    pinMode(D3, OUTPUT); // fire0
-    pinMode(D4, OUTPUT); // fire1
-    pinMode(D5, OUTPUT); // fire2
-    pinMode(D6, OUTPUT); // fire3
-    pinMode(D7, INPUT_PULLDOWN); // armed
-    pinMode(RX, OUTPUT); // senseSwitch
-    pinMode(TX, OUTPUT); // fire7
-    pinMode(A0, INPUT); // sense0
-    pinMode(A1, INPUT); // sense1
-    pinMode(A2, INPUT); // sense2
-    pinMode(A3, INPUT); // sense3
-    pinMode(A4, INPUT); // sense4
-    pinMode(A5, INPUT); // sense5
-    pinMode(DAC, INPUT); // sense6
-    pinMode(WKP, INPUT); // sense7
-
-    digitalWrite(D0, LOW);
-    digitalWrite(D1, LOW);
-    digitalWrite(D2, LOW);
-    digitalWrite(D3, LOW);
-    digitalWrite(D4, LOW);
-    digitalWrite(D5, LOW);
-    digitalWrite(D6, LOW);
-    digitalWrite(TX, LOW);
-
-    digitalWrite(RX, HIGH);
-
-    // get the wifi connected
-    while (!WiFi.ready())
-    {
-        Particle.process();
-        WiFi.connect();
-        while(WiFi.connecting()) {Particle.process();}
-    }
-
-
-    delay(100);
-}
-
+// initialize global status variables
 int hwArm;
 int res0;
 int res1;
@@ -95,13 +59,79 @@ int res5;
 int res6;
 int res7;
 
+// initialize sw arm
 int swArm = 0;
 
-/* This function loops forever --------------------------------------------*/
+// function to turn off sense circuit
+void senseOff()
+{
+    digitalWrite(senseswitch, HIGH);
+}
+
+// function to turn on sense circuit
+void senseOn()
+{
+    digitalWrite(senseswitch, LOW);
+}
+
+// this function runs once on startup
+void setup()
+{
+    // set the firing pins to output mode
+    pinMode(fire0, OUTPUT);
+    pinMode(fire1, OUTPUT);
+    pinMode(fire2, OUTPUT);
+    pinMode(fire3, OUTPUT);
+    pinMode(fire4, OUTPUT);
+    pinMode(fire5, OUTPUT);
+    pinMode(fire6, OUTPUT);
+    pinMode(fire7, OUTPUT);
+
+    // set the firing pin outputs low
+    digitalWrite(fire0, LOW);
+    digitalWrite(fire1, LOW);
+    digitalWrite(fire2, LOW);
+    digitalWrite(fire3, LOW);
+    digitalWrite(fire4, LOW);
+    digitalWrite(fire5, LOW);
+    digitalWrite(fire6, LOW);
+    digitalWrite(fire7, LOW);
+
+    // set the HW Arm sense pin to input pulldown mode
+    pinMode(armsense, INPUT_PULLDOWN);
+
+    // set the sense switch pin to output mode
+    pinMode(senseswitch, OUTPUT);
+
+    // set the sense switch pin high (sense off)
+    senseOff();
+
+    // set the sense pins to input mode
+    pinMode(sense0, INPUT);
+    pinMode(sense1, INPUT);
+    pinMode(sense2, INPUT);
+    pinMode(sense3, INPUT);
+    pinMode(sense4, INPUT);
+    pinMode(sense5, INPUT);
+    pinMode(sense6, INPUT);
+    pinMode(sense7, INPUT);
+    pinMode(WKP, INPUT); // sense7
+
+    // get the wifi connected
+    while (!WiFi.ready())
+    {
+        Particle.process();
+        WiFi.connect();
+        while(WiFi.connecting()) {Particle.process();}
+    }
+
+    delay(100);
+
+}
+
+// this function loops forever
 void loop()
 {
-    //This will run in a loop
-
     if (!serverClient.connected()) {
         serverClient = server.available();
     }
@@ -118,6 +148,16 @@ void loop()
             swArm = 1;
         } else if (command.equals("disarm")) {
             swArm = 0;
+        } else if (command.startsWith("fire")) {
+            for (int i = 4; i < command.length(); i++) {
+                char channelNum = command.charAt(i);
+                if (channelNum == '3') {
+                    digitalWrite(fire3, HIGH);
+                    delay(1000);
+                    digitalWrite(fire3, LOW);
+                    delay(200);
+                }
+            }
         }
         server.println(command);
         server.println("HTTP/1.0 200 OK");
@@ -125,20 +165,19 @@ void loop()
         server.println();
     }
 
-    hwArm = digitalRead(D7);
+    hwArm = digitalRead(armsense);
 
-    digitalWrite(RX, LOW);
+    senseOn();
     delay(200);
-    res0 = analogRead(A0);
-    res1 = analogRead(A1);
-    res2 = analogRead(A2);
-    res3 = analogRead(A3);
-    res4 = analogRead(A4);
-    res5 = analogRead(A5);
-    res6 = analogRead(DAC);
-    res7 = analogRead(WKP);
-    delay(200);
-    digitalWrite(RX, HIGH);
+    res0 = analogRead(sense0);
+    res1 = analogRead(sense1);
+    res2 = analogRead(sense2);
+    res3 = analogRead(sense3);
+    res4 = analogRead(sense4);
+    res5 = analogRead(sense5);
+    res6 = analogRead(sense6);
+    res7 = analogRead(sense7);
+    senseOff();
 
     if (client.connect(serverIP, serverPort))
     {
