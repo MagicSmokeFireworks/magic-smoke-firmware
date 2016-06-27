@@ -304,11 +304,11 @@ void loop()
                     }
                 }
             }
-            server.println(command);
-            server.println("HTTP/1.0 200 OK");
-            server.println("Content-Length: 0");
-            server.println();
         }
+        server.println(command);
+        server.println("HTTP/1.0 200 OK");
+        server.println("Content-Length: 0");
+        server.println();
     }
 }
 
