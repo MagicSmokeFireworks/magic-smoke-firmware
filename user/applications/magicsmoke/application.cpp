@@ -74,6 +74,115 @@ void senseOn()
     digitalWrite(senseswitch, LOW);
 }
 
+// function to collect status, called on timer
+void getStatus()
+{
+    hwArm = digitalRead(armsense);
+
+    senseOn();
+    delay(200);
+    res0 = analogRead(sense0);
+    res1 = analogRead(sense1);
+    res2 = analogRead(sense2);
+    res3 = analogRead(sense3);
+    res4 = analogRead(sense4);
+    res5 = analogRead(sense5);
+    res6 = analogRead(sense6);
+    res7 = analogRead(sense7);
+    senseOff();
+
+    if (client.connect(serverIP, serverPort))
+    {
+        client.println("POST /status HTTP/1.0");
+        client.println("Host: 192.168.0.102:8080");
+        client.println("Content-Length: 150");
+        client.println();
+        client.println(System.deviceID());
+        client.println("SW Arm: " + String(swArm));
+        if (hwArm == 0) {
+            client.println("HW Arm: DISARMED");
+        }
+        else{
+            client.println("HW Arm: ARMED");
+        }
+        client.println("R0: " + String(res0));
+        client.println("R1: " + String(res1));
+        client.println("R2: " + String(res2));
+        client.println("R3: " + String(res3));
+        client.println("R4: " + String(res4));
+        client.println("R5: " + String(res5));
+        client.println("R6: " + String(res6));
+        client.println("R7: " + String(res7));
+        client.println("wifi RSSI: " + String(WiFi.RSSI()));
+        client.println("          ");
+        client.println("          ");
+        client.println("          ");
+        client.println("          ");
+        client.println("          ");
+        client.println("          ");
+    }
+    while(1)
+    {
+        if (client.available())
+        {
+            char c = client.read();
+        }
+
+        if (!client.connected())
+        {
+            client.stop();
+            break;
+        }
+    }
+}
+
+// set up software timer for sending status
+Timer statusTimer(2000, getStatus);
+
+// functions to stop firing, called on timers
+void stopFire0()
+{
+    digitalWrite(fire0, LOW);
+}
+void stopFire1()
+{
+    digitalWrite(fire1, LOW);
+}
+void stopFire2()
+{
+    digitalWrite(fire2, LOW);
+}
+void stopFire3()
+{
+    digitalWrite(fire3, LOW);
+}
+void stopFire4()
+{
+    digitalWrite(fire4, LOW);
+}
+void stopFire5()
+{
+    digitalWrite(fire5, LOW);
+}
+void stopFire6()
+{
+    digitalWrite(fire6, LOW);
+}
+void stopFire7()
+{
+    digitalWrite(fire7, LOW);
+}
+
+// set up 'one_shot' software timers for stopping firing
+Timer stopFire0Timer(1000, stopFire0, true);
+Timer stopFire1Timer(1000, stopFire1, true);
+Timer stopFire2Timer(1000, stopFire2, true);
+Timer stopFire3Timer(1000, stopFire3, true);
+Timer stopFire4Timer(1000, stopFire4, true);
+Timer stopFire5Timer(1000, stopFire5, true);
+Timer stopFire6Timer(1000, stopFire6, true);
+Timer stopFire7Timer(1000, stopFire7, true);
+
 // this function runs once on startup
 void setup()
 {
@@ -127,6 +236,8 @@ void setup()
 
     delay(100);
 
+    // start the status collection timer
+    statusTimer.start();
 }
 
 // this function loops forever
@@ -149,78 +260,55 @@ void loop()
         } else if (command.equals("disarm")) {
             swArm = 0;
         } else if (command.startsWith("fire")) {
-            for (int i = 4; i < command.length(); i++) {
-                char channelNum = command.charAt(i);
-                if (channelNum == '3') {
+            // only proceed if swArm is 1
+            if (swArm == 1)
+            {
+                // reset the status timer so that status is not collected during firing
+                statusTimer.reset();
+
+                // look through command for channels to fire
+                // each channel found will go high and start the timer to stop the fire
+                for (uint i = 4; i < command.length(); i++) {
+                    char channelNum = command.charAt(i);
+                    if (channelNum == '0') {
+                        digitalWrite(fire0, HIGH);
+                        stopFire0Timer.start();
+                    }
+                    else if (channelNum == '1') {
+                        digitalWrite(fire1, HIGH);
+                        stopFire1Timer.start();
+                    }
+                    else if (channelNum == '2') {
+                        digitalWrite(fire2, HIGH);
+                        stopFire2Timer.start();
+                    }
+                    else if (channelNum == '3') {
                     digitalWrite(fire3, HIGH);
-                    delay(1000);
-                    digitalWrite(fire3, LOW);
-                    delay(200);
+                    stopFire3Timer.start();
+                    }
+                    else if (channelNum == '4') {
+                        digitalWrite(fire4, HIGH);
+                        stopFire4Timer.start();
+                    }
+                    else if (channelNum == '5') {
+                        digitalWrite(fire5, HIGH);
+                        stopFire5Timer.start();
+                    }
+                    else if (channelNum == '6') {
+                        digitalWrite(fire6, HIGH);
+                        stopFire6Timer.start();
+                    }
+                    else if (channelNum == '7') {
+                        digitalWrite(fire7, HIGH);
+                        stopFire7Timer.start();
+                    }
                 }
             }
+            server.println(command);
+            server.println("HTTP/1.0 200 OK");
+            server.println("Content-Length: 0");
+            server.println();
         }
-        server.println(command);
-        server.println("HTTP/1.0 200 OK");
-        server.println("Content-Length: 0");
-        server.println();
     }
-
-    hwArm = digitalRead(armsense);
-
-    senseOn();
-    delay(200);
-    res0 = analogRead(sense0);
-    res1 = analogRead(sense1);
-    res2 = analogRead(sense2);
-    res3 = analogRead(sense3);
-    res4 = analogRead(sense4);
-    res5 = analogRead(sense5);
-    res6 = analogRead(sense6);
-    res7 = analogRead(sense7);
-    senseOff();
-
-    if (client.connect(serverIP, serverPort))
-    {
-        client.println("POST /status HTTP/1.0");
-	client.println("Host: 192.168.0.102:8080");
-        client.println("Content-Length: 140");
-        client.println();
-        client.println("SW Arm: " + String(swArm));
-        if (hwArm == 0) {
-            client.println("HW Arm: DISARMED");
-        }
-        else{
-            client.println("HW Arm: ARMED");
-        }
-        client.println("R0: " + String(res0));
-        client.println("R1: " + String(res1));
-        client.println("R2: " + String(res2));
-        client.println("R3: " + String(res3));
-        client.println("R4: " + String(res4));
-        client.println("R5: " + String(res5));
-        client.println("R6: " + String(res6));
-        client.println("R7: " + String(res7));
-        client.println("wifi RSSI: " + String(WiFi.RSSI()));
-        client.println("          ");
-        client.println("          ");
-        client.println("          ");
-        client.println("          ");
-        client.println("          ");
-        client.println("          ");
-    }
-    while(1) {
-    if (client.available())
-    {
-        char c = client.read();
-    }
-
-    if (!client.connected())
-    {
-        client.stop();
-        break;
-    }
-    }
-
-    delay(2000);
 }
 
