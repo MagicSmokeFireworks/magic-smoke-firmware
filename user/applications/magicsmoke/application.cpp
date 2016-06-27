@@ -224,7 +224,6 @@ void setup()
     pinMode(sense5, INPUT);
     pinMode(sense6, INPUT);
     pinMode(sense7, INPUT);
-    pinMode(WKP, INPUT); // sense7
 
     // get the wifi connected
     while (!WiFi.ready())
@@ -248,7 +247,7 @@ void loop()
     }
 
     if (serverClient.connected()) {
-	String command = "";
+        String command = "";
         int x = 0;
         while (serverClient.available()) {
             x += 1;
@@ -283,8 +282,8 @@ void loop()
                         stopFire2Timer.start();
                     }
                     else if (channelNum == '3') {
-                    digitalWrite(fire3, HIGH);
-                    stopFire3Timer.start();
+                        digitalWrite(fire3, HIGH);
+                        stopFire3Timer.start();
                     }
                     else if (channelNum == '4') {
                         digitalWrite(fire4, HIGH);
