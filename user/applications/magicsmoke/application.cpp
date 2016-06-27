@@ -95,15 +95,13 @@ void getStatus()
     {
         client.println("POST /status HTTP/1.0");
         client.println("Host: 192.168.0.102:8080");
-        client.println("Content-Length: 150");
-        client.println();
-        client.println(System.deviceID());
-        client.println("SW Arm: " + String(swArm));
+        client.println("ID: " + System.deviceID());
+        client.println("SW_ARM: " + String(swArm));
         if (hwArm == 0) {
-            client.println("HW Arm: DISARMED");
+            client.println("HW_ARM: DISARMED");
         }
         else{
-            client.println("HW Arm: ARMED");
+            client.println("HW_ARM: ARMED");
         }
         client.println("R0: " + String(res0));
         client.println("R1: " + String(res1));
@@ -113,13 +111,9 @@ void getStatus()
         client.println("R5: " + String(res5));
         client.println("R6: " + String(res6));
         client.println("R7: " + String(res7));
-        client.println("wifi RSSI: " + String(WiFi.RSSI()));
-        client.println("          ");
-        client.println("          ");
-        client.println("          ");
-        client.println("          ");
-        client.println("          ");
-        client.println("          ");
+        client.println("WIFI_RSSI: " + String(WiFi.RSSI()));
+        client.println("Content-Length: 0");
+        client.println();
     }
     while(1)
     {
