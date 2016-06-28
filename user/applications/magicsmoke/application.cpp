@@ -80,7 +80,7 @@ void getStatus()
     hwArm = digitalRead(armsense);
 
     senseOn();
-    delay(200);
+    delay(1);
     res0 = analogRead(sense0);
     res1 = analogRead(sense1);
     res2 = analogRead(sense2);
