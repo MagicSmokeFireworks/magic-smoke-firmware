@@ -13,7 +13,7 @@ STARTUP(System.enable(SYSTEM_FLAG_WIFITESTER_OVER_SERIAL1));
 #endif
 
 // semi auto system mode will connect to preconfigured wifi, but not cloud
-SYSTEM_MODE(SEMI_AUTOMATIC);
+SYSTEM_MODE(MANUAL);
 
 // use external wifi antenna
 STARTUP(WiFi.selectAntenna(ANT_EXTERNAL));
@@ -43,7 +43,7 @@ STARTUP(WiFi.selectAntenna(ANT_EXTERNAL));
 
 // initialize tcp server/client info
 int serverPort = 8080;
-byte serverIP[] = {192, 168, 0, 102};
+byte serverIP[] = {192, 168, 1, 3};
 TCPClient client;
 TCPServer server = TCPServer(23);
 TCPClient serverClient;
@@ -77,6 +77,9 @@ void senseOn()
 // function to collect status, called on timer
 void getStatus()
 {
+    if(!WiFi.ready()) {
+        return;
+    }
     hwArm = digitalRead(armsense);
 
     senseOn();
@@ -219,6 +222,8 @@ void setup()
     pinMode(sense6, INPUT);
     pinMode(sense7, INPUT);
 
+    WiFi.on();
+    WiFi.setCredentials("FBnet1","1smj-gln3-jet1");
     // get the wifi connected
     while (!WiFi.ready())
     {
@@ -236,6 +241,12 @@ void setup()
 // this function loops forever
 void loop()
 {
+//    while (!WiFi.ready())
+//    {
+//        Particle.process();
+//        WiFi.connect();
+//        while(WiFi.connecting()) {Particle.process();}
+//    }
     if (!serverClient.connected()) {
         serverClient = server.available();
     }
