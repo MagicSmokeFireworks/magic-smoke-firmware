@@ -52,3 +52,6 @@ nbproject/
 build/target/
 build/cores/
 hal/soft-ap/.idea/
+
+# get node modules from the package.json
+main/node_modules
