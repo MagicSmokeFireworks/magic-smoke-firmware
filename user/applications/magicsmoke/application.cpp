@@ -43,7 +43,7 @@ STARTUP(WiFi.selectAntenna(ANT_EXTERNAL));
 
 // initialize tcp server/client info
 int serverPort = 8080;
-byte serverIP[] = {192, 168, 1, 3};
+byte serverIP[] = {192, 168, 0, 101};
 TCPClient client;
 TCPServer server = TCPServer(23);
 TCPClient serverClient;
@@ -97,7 +97,7 @@ void getStatus()
     if (client.connect(serverIP, serverPort))
     {
         client.println("POST /status HTTP/1.0");
-        client.println("Host: 192.168.0.102:8080");
+        client.println("Host: 192.168.0.101:8080");
         client.println("ID: " + System.deviceID());
         client.println("SW_ARM: " + String(swArm));
         if (hwArm == 0) {
@@ -223,7 +223,7 @@ void setup()
     pinMode(sense7, INPUT);
 
     WiFi.on();
-    WiFi.setCredentials("FBnet1","1smj-gln3-jet1");
+    WiFi.setCredentials("<ssid>","<password>");
     // get the wifi connected
     while (!WiFi.ready())
     {
@@ -241,12 +241,12 @@ void setup()
 // this function loops forever
 void loop()
 {
-//    while (!WiFi.ready())
-//    {
-//        Particle.process();
-//        WiFi.connect();
-//        while(WiFi.connecting()) {Particle.process();}
-//    }
+    while (!WiFi.ready())
+    {
+        Particle.process();
+        WiFi.connect();
+        while(WiFi.connecting()) {Particle.process();}
+    }
     if (!serverClient.connected()) {
         serverClient = server.available();
     }
