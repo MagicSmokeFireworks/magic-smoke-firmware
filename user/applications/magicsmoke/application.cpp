@@ -41,9 +41,13 @@ STARTUP(WiFi.selectAntenna(ANT_EXTERNAL));
 
 #define armsense D7
 
+// define this firmware version (reported in status)
+String firmwareVersion = "1.1";
+
 // initialize tcp server/client info
 int serverPort = 8080;
 byte serverIP[] = {192, 168, 0, 101};
+String hostString = "Host: 192.168.0.101:8080";
 TCPClient client;
 TCPServer server = TCPServer(23);
 TCPClient serverClient;
@@ -97,8 +101,9 @@ void getStatus()
     if (client.connect(serverIP, serverPort))
     {
         client.println("POST /status HTTP/1.0");
-        client.println("Host: 192.168.0.101:8080");
+        client.println(hostString);
         client.println("ID: " + System.deviceID());
+        client.println("FVer: " + firmwareVersion);
         client.println("SW_ARM: " + String(swArm));
         if (hwArm == 0) {
             client.println("HW_ARM: DISARMED");
