@@ -62,6 +62,14 @@ int res4;
 int res5;
 int res6;
 int res7;
+int firecount0 = 0;
+int firecount1 = 0;
+int firecount2 = 0;
+int firecount3 = 0;
+int firecount4 = 0;
+int firecount5 = 0;
+int firecount6 = 0;
+int firecount7 = 0;
 
 // initialize sw arm
 int swArm = 0;
@@ -119,6 +127,14 @@ void getStatus()
         client.println("R5: " + String(res5));
         client.println("R6: " + String(res6));
         client.println("R7: " + String(res7));
+        client.println("FC0: " + String(firecount0));
+        client.println("FC1: " + String(firecount1));
+        client.println("FC2: " + String(firecount2));
+        client.println("FC3: " + String(firecount3));
+        client.println("FC4: " + String(firecount4));
+        client.println("FC5: " + String(firecount5));
+        client.println("FC6: " + String(firecount6));
+        client.println("FC7: " + String(firecount7));
         client.println("WIFI_RSSI: " + String(WiFi.RSSI()));
         client.println("Content-Length: 0");
         client.println();
@@ -282,34 +298,42 @@ void loop()
                     if (channelNum == '0') {
                         digitalWrite(fire0, HIGH);
                         stopFire0Timer.start();
+                        firecount0++;
                     }
                     else if (channelNum == '1') {
                         digitalWrite(fire1, HIGH);
                         stopFire1Timer.start();
+                        firecount1++;
                     }
                     else if (channelNum == '2') {
                         digitalWrite(fire2, HIGH);
                         stopFire2Timer.start();
+                        firecount2++;
                     }
                     else if (channelNum == '3') {
                         digitalWrite(fire3, HIGH);
                         stopFire3Timer.start();
+                        firecount3++;
                     }
                     else if (channelNum == '4') {
                         digitalWrite(fire4, HIGH);
                         stopFire4Timer.start();
+                        firecount4++;
                     }
                     else if (channelNum == '5') {
                         digitalWrite(fire5, HIGH);
                         stopFire5Timer.start();
+                        firecount5++;
                     }
                     else if (channelNum == '6') {
                         digitalWrite(fire6, HIGH);
                         stopFire6Timer.start();
+                        firecount6++;
                     }
                     else if (channelNum == '7') {
                         digitalWrite(fire7, HIGH);
                         stopFire7Timer.start();
+                        firecount7++;
                     }
                 }
             }
