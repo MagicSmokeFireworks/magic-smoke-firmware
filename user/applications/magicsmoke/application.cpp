@@ -341,12 +341,11 @@ void loop()
         } else {
             commanded = 0;
         }
+        server.println(command);
+        server.println("HTTP/1.0 200 OK");
+        server.println("Content-Length: 0");
+        server.println();
         if (commanded == 1) {
-            server.println(command);
-            server.println("HTTP/1.0 200 OK");
-            server.println("Content-Length: 0");
-            server.println();
-	
             // reset the status timer again, but then call the status function directly.
             // this is to send out a quick status update after servicing a command, without flooding status.
             statusTimer.reset();
