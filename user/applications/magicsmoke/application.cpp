@@ -70,6 +70,7 @@ int firecount4 = 0;
 int firecount5 = 0;
 int firecount6 = 0;
 int firecount7 = 0;
+int cmdcount = 0;
 
 // initialize sw arm
 int swArm = 0;
@@ -135,6 +136,7 @@ void getStatus()
         client.println("FC5: " + String(firecount5));
         client.println("FC6: " + String(firecount6));
         client.println("FC7: " + String(firecount7));
+        client.println("CC: " + String(cmdcount));
         client.println("WIFI_RSSI: " + String(WiFi.RSSI()));
         client.println("Content-Length: 0");
         client.println();
@@ -341,15 +343,12 @@ void loop()
         } else {
             commanded = 0;
         }
-        server.println(command);
-        server.println("HTTP/1.0 200 OK");
-        server.println("Content-Length: 0");
-        server.println();
         if (commanded == 1) {
-            // reset the status timer again, but then call the status function directly.
-            // this is to send out a quick status update after servicing a command, without flooding status.
-            statusTimer.reset();
-            getStatus();
+	    cmdcount++;
+	    server.println(command);
+	    server.println("HTTP/1.0 200 OK");
+	    server.println("Content-Length: 0");
+	    server.println();
         }
     }
 }
