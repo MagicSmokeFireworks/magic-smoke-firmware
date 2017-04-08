@@ -46,7 +46,7 @@ ApplicationWatchdog wd(30000, System.reset);
 #define armsense D7
 
 // define this firmware version (reported in status)
-String firmwareVersion = "1.1";
+String firmwareVersion = "2.0";
 
 // initialize tcp server/client info
 int serverPort = 8080;
