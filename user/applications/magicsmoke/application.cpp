@@ -18,6 +18,10 @@ SYSTEM_MODE(MANUAL);
 // use external wifi antenna
 STARTUP(WiFi.selectAntenna(ANT_EXTERNAL));
 
+// define the software watchdog (runs in high-priority thread)
+// will reset the system if status function doesnt check in within 30 seconds
+ApplicationWatchdog wd(30000, System.reset);
+
 // define pin aliases
 #define fire0 D3
 #define fire1 D4
@@ -90,11 +94,19 @@ void senseOn()
 // function to collect status, called on timer
 void getStatus()
 {
+    // check in with the watchdog
+    wd.checkin();
+
+    // don't try to send status if the WiFi isn't up
+    // (main loop should handle WiFi problems)
     if(!WiFi.ready()) {
         return;
     }
+
+    // read the HW Arm pin
     hwArm = digitalRead(armsense);
 
+    // Read the match channels (1 ms delay to energize the sense resistors)
     senseOn();
     delay(1);
     res0 = analogRead(sense0);
@@ -107,6 +119,7 @@ void getStatus()
     res7 = analogRead(sense7);
     senseOff();
 
+    // connect to server and dump the status
     if (client.connect(serverIP, serverPort))
     {
         client.println("POST /status HTTP/1.0");
@@ -141,10 +154,13 @@ void getStatus()
         client.println("Content-Length: 0");
         client.println();
     }
+    
+    // read the response back from the server (and do nothing with it)
     while(1)
     {
         if (client.available())
         {
+            // important to read to clear buffer, but we arent doing anything with it atm
             char c = client.read();
         }
 
