@@ -50,8 +50,8 @@ String firmwareVersion = "2.0";
 
 // initialize tcp server/client info
 int serverPort = 8080;
-byte serverIP[] = {192, 168, 0, 101};
-String hostString = "Host: 192.168.0.101:8080";
+byte serverIP[] = {192, 168, 0, 100};
+String hostString = "Host: 192.168.0.100:8080";
 TCPClient client;
 TCPServer server = TCPServer(23);
 TCPClient serverClient;
@@ -219,6 +219,15 @@ Timer stopFire5Timer(1000, stopFire5, true);
 Timer stopFire6Timer(1000, stopFire6, true);
 Timer stopFire7Timer(1000, stopFire7, true);
 
+// function to stop identify LED
+void stopIdentify()
+{
+    RGB.control(false);
+}
+
+// set up 'one_shot' software timer to stop identify
+Timer stopIdentifyTimer(2000, stopIdentify, true);
+
 // this function runs once on startup
 void setup()
 {
@@ -262,6 +271,7 @@ void setup()
     pinMode(sense7, INPUT);
 
     WiFi.on();
+    WiFi.clearCredentials();
     WiFi.setCredentials("<ssid>","<password>");
     // get the wifi connected
     while (!WiFi.ready())
@@ -303,6 +313,11 @@ void loop()
             swArm = 1;
         } else if (command.equals("disarm")) {
             swArm = 0;
+        } else if (command.equals("identify")) {
+            // control the rgb led to go red and blue for 2 seconds
+            RGB.control(true);
+            RGB.color(255,0,255);
+            stopIdentifyTimer.start();
         } else if (command.startsWith("fire")) {
             // only proceed if swArm is 1
             if (swArm == 1)
