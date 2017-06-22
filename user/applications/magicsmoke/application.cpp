@@ -50,8 +50,8 @@ String firmwareVersion = "2.0";
 
 // initialize tcp server/client info
 int serverPort = 8080;
-byte serverIP[] = {192, 168, 0, 100};
-String hostString = "Host: 192.168.0.100:8080";
+byte serverIP[] = {192, 168, 1, 99};
+String hostString = "Host: 192.168.1.99:8080";
 TCPClient client;
 TCPServer server = TCPServer(23);
 TCPClient serverClient;
@@ -272,7 +272,7 @@ void setup()
 
     WiFi.on();
     WiFi.clearCredentials();
-    WiFi.setCredentials("<ssid>","<password>");
+    WiFi.setCredentials("FBnet1","1smj-gln3-jet1");
     // get the wifi connected
     while (!WiFi.ready())
     {
