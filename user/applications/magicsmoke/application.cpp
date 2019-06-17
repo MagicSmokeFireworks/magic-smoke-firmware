@@ -19,8 +19,9 @@ SYSTEM_MODE(MANUAL);
 STARTUP(WiFi.selectAntenna(ANT_EXTERNAL));
 
 // define the software watchdog (runs in high-priority thread)
-// will reset the system if status function doesnt check in within 30 seconds
-ApplicationWatchdog wd(30000, System.reset);
+// will reset the system if status function doesnt check in within 60 seconds
+// automatic check-in occurs each time we exit loop()
+ApplicationWatchdog wd(60000, System.reset);
 
 // define pin aliases
 #define fire0 D3
@@ -46,7 +47,7 @@ ApplicationWatchdog wd(30000, System.reset);
 #define armsense D7
 
 // define this firmware version (reported in status)
-String firmwareVersion = "2.0";
+String firmwareVersion = "2.1";
 
 // initialize tcp server/client info
 int serverPort = 8080;
@@ -66,18 +67,48 @@ int res4;
 int res5;
 int res6;
 int res7;
-int firecount0 = 0;
-int firecount1 = 0;
-int firecount2 = 0;
-int firecount3 = 0;
-int firecount4 = 0;
-int firecount5 = 0;
-int firecount6 = 0;
-int firecount7 = 0;
-int cmdcount = 0;
 
-// initialize sw arm
-int swArm = 0;
+// initialize retained status variables (in SRAM)
+retained int firecount0 = 0;
+retained int firecount1 = 0;
+retained int firecount2 = 0;
+retained int firecount3 = 0;
+retained int firecount4 = 0;
+retained int firecount5 = 0;
+retained int firecount6 = 0;
+retained int firecount7 = 0;
+retained int firetime0 = 0;
+retained int firetime1 = 0;
+retained int firetime2 = 0;
+retained int firetime3 = 0;
+retained int firetime4 = 0;
+retained int firetime5 = 0;
+retained int firetime6 = 0;
+retained int firetime7 = 0;
+retained int cmdcount = 0;
+retained int packetId = 0;
+
+// initialize sw arm (retain in SRAM)
+retained int swArm = 0;
+
+// initialize warm boot count (retain in SRAM)
+retained int bootCount = 0;
+
+// record the last time since boot we got a command
+int lastCmdTime = 0;
+
+bool timeSet = false;
+
+// definitions for status rates
+#define lowRateStatus 10000
+#define highRateStatus 1000
+#define quickStatusRate 100
+
+bool highRate = true;
+
+bool quickStatusRequested = false;
+bool quickStatusSent = false;
+
 
 // function to turn off sense circuit
 void senseOff()
@@ -94,8 +125,11 @@ void senseOn()
 // function to collect status, called on timer
 void getStatus()
 {
-    // check in with the watchdog
-    wd.checkin();
+
+    // correct timer period after quick status timer
+    if (quickStatusRequested) {
+        quickStatusSent = true;
+    }
 
     // don't try to send status if the WiFi isn't up
     // (main loop should handle WiFi problems)
@@ -122,10 +156,16 @@ void getStatus()
     // connect to server and dump the status
     if (client.connect(serverIP, serverPort))
     {
+
+        packetId++;
+
         client.println("POST /status HTTP/1.0");
         client.println(hostString);
         client.println("ID: " + System.deviceID());
         client.println("FVer: " + firmwareVersion);
+        client.println("BC: " + String(bootCount));
+        client.println("PID: " + String(packetId));
+        client.println("MICROS: " + String(micros()));
         client.println("SW_ARM: " + String(swArm));
         if (hwArm == 0) {
             client.println("HW_ARM: DISARMED");
@@ -149,6 +189,14 @@ void getStatus()
         client.println("FC5: " + String(firecount5));
         client.println("FC6: " + String(firecount6));
         client.println("FC7: " + String(firecount7));
+        client.println("LFT0: " + String(firetime0));
+        client.println("LFT1: " + String(firetime1));
+        client.println("LFT2: " + String(firetime2));
+        client.println("LFT3: " + String(firetime3));
+        client.println("LFT4: " + String(firetime4));
+        client.println("LFT5: " + String(firetime5));
+        client.println("LFT6: " + String(firetime6));
+        client.println("LFT7: " + String(firetime7));
         client.println("CC: " + String(cmdcount));
         client.println("WIFI_RSSI: " + String(WiFi.RSSI()));
         client.println("Content-Length: 0");
@@ -172,8 +220,9 @@ void getStatus()
     }
 }
 
+
 // set up software timer for sending status
-Timer statusTimer(2000, getStatus);
+Timer statusTimer(highRateStatus, getStatus);
 
 // functions to stop firing, called on timers
 void stopFire0()
@@ -219,6 +268,7 @@ Timer stopFire5Timer(1000, stopFire5, true);
 Timer stopFire6Timer(1000, stopFire6, true);
 Timer stopFire7Timer(1000, stopFire7, true);
 
+
 // function to stop identify LED
 void stopIdentify()
 {
@@ -231,6 +281,10 @@ Timer stopIdentifyTimer(2000, stopIdentify, true);
 // this function runs once on startup
 void setup()
 {
+
+    // increment the boot count
+    bootCount += 1;
+
     // set the firing pins to output mode
     pinMode(fire0, OUTPUT);
     pinMode(fire1, OUTPUT);
@@ -287,9 +341,141 @@ void setup()
     statusTimer.start();
 }
 
+//// COMMAND FUNCTIONS
+
+// software arm/disarm
+bool arm(bool arm) {
+    if (arm) {
+        swArm = 1;
+    }
+    else {
+        swArm = 0;
+    }
+    return true;
+}
+
+// telemetry reporting rate
+bool rate(uint rate) {
+    if (rate == 0) {
+        if (highRate) {
+            highRate = false;
+            statusTimer.changePeriod(lowRateStatus);
+        }
+        return true;
+    }
+    else if (rate == 1) {
+        if (!highRate) {
+            highRate = true;
+            statusTimer.changePeriod(highRateStatus);
+        }
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+// identify LED
+bool identify() {
+    // control the rgb led to go red and blue for 2 seconds
+    RGB.control(true);
+    RGB.color(255,0,255);
+    stopIdentifyTimer.start();
+    return true;
+}
+
+// fire command
+bool fire(String chanString) {
+
+    // only fire if swArm is 1
+    if (swArm != 1) {
+        return false;
+    }
+
+    // reset the status timer so that status is not collected during firing
+    //statusTimer.reset();
+
+    // determine the channels to fire
+    char chanChars[3];
+    chanString.toCharArray(chanChars, 3);
+    int chans = strtol(chanChars, NULL, 16);
+
+    int firetime = Time.now();
+
+    // fire commanded channels
+    if (chans & 0x01) {
+        digitalWrite(fire0, HIGH);
+        stopFire0Timer.start();
+        firecount0++;
+        firetime0 = firetime;
+    }
+    if (chans & 0x02) {
+        digitalWrite(fire1, HIGH);
+        stopFire1Timer.start();
+        firecount1++;
+        firetime1 = firetime;
+    }
+    if (chans & 0x04) {
+        digitalWrite(fire2, HIGH);
+        stopFire2Timer.start();
+        firecount2++;
+        firetime2 = firetime;
+    }
+    if (chans & 0x08) {
+        digitalWrite(fire3, HIGH);
+        stopFire3Timer.start();
+        firecount3++;
+        firetime3 = firetime;
+    }
+    if (chans & 0x10) {
+        digitalWrite(fire4, HIGH);
+        stopFire4Timer.start();
+        firecount4++;
+        firetime4 = firetime;
+    }
+    if (chans & 0x20) {
+        digitalWrite(fire5, HIGH);
+        stopFire5Timer.start();
+        firecount5++;
+        firetime5 = firetime;
+    }
+    if (chans & 0x40) {
+        digitalWrite(fire6, HIGH);
+        stopFire6Timer.start();
+        firecount6++;
+        firetime6 = firetime;
+    }
+    if (chans & 0x80) {
+        digitalWrite(fire7, HIGH);
+        stopFire7Timer.start();
+        firecount7++;
+        firetime7 = firetime;
+    }
+
+    return true;
+}
+
+// ping command
+bool ping() {
+    return true;
+}
+
+
 // this function loops forever
 void loop()
 {
+
+    // if a quick status cycle was requested and sent, set the status rate back to normal
+    if (quickStatusRequested && quickStatusSent) {
+        quickStatusRequested = false;
+        if (highRate) {
+            statusTimer.changePeriod(highRateStatus);
+        }
+        else {
+            statusTimer.changePeriod(lowRateStatus);
+        }
+    }
+
     while (!WiFi.ready())
     {
         Particle.process();
@@ -301,6 +487,7 @@ void loop()
     }
 
     if (serverClient.connected()) {
+
         String command = "";
         int x = 0;
         while (serverClient.available()) {
@@ -308,78 +495,120 @@ void loop()
             char c = serverClient.read();
             command.concat(String(c));
         }
-	int commanded = 1;
-        if (command.equals("arm")) {
-            swArm = 1;
-        } else if (command.equals("disarm")) {
-            swArm = 0;
-        } else if (command.equals("identify")) {
-            // control the rgb led to go red and blue for 2 seconds
-            RGB.control(true);
-            RGB.color(255,0,255);
-            stopIdentifyTimer.start();
-        } else if (command.startsWith("fire")) {
-            // only proceed if swArm is 1
-            if (swArm == 1)
-            {
-                // reset the status timer so that status is not collected during firing
-                statusTimer.reset();
 
-                // look through command for channels to fire
-                // each channel found will go high and start the timer to stop the fire
-                for (uint i = 4; i < command.length(); i++) {
-                    char channelNum = command.charAt(i);
-                    if (channelNum == '0') {
-                        digitalWrite(fire0, HIGH);
-                        stopFire0Timer.start();
-                        firecount0++;
-                    }
-                    else if (channelNum == '1') {
-                        digitalWrite(fire1, HIGH);
-                        stopFire1Timer.start();
-                        firecount1++;
-                    }
-                    else if (channelNum == '2') {
-                        digitalWrite(fire2, HIGH);
-                        stopFire2Timer.start();
-                        firecount2++;
-                    }
-                    else if (channelNum == '3') {
-                        digitalWrite(fire3, HIGH);
-                        stopFire3Timer.start();
-                        firecount3++;
-                    }
-                    else if (channelNum == '4') {
-                        digitalWrite(fire4, HIGH);
-                        stopFire4Timer.start();
-                        firecount4++;
-                    }
-                    else if (channelNum == '5') {
-                        digitalWrite(fire5, HIGH);
-                        stopFire5Timer.start();
-                        firecount5++;
-                    }
-                    else if (channelNum == '6') {
-                        digitalWrite(fire6, HIGH);
-                        stopFire6Timer.start();
-                        firecount6++;
-                    }
-                    else if (channelNum == '7') {
-                        digitalWrite(fire7, HIGH);
-                        stopFire7Timer.start();
-                        firecount7++;
-                    }
-                }
-            }
-        } else {
-            commanded = 0;
+        bool commanded = false;
+        bool cmdTimeValid = false;
+        bool cmdValid = false;
+
+        char cmdId = 'F';
+        int cmdTime = 0;
+        String cmdChans = "00";
+
+        if (command.startsWith(".") && (command.length() > 15) ) {
+            commanded = true;
+            cmdId = command.charAt(1);
+            cmdChans = command.substring(3,5);
+            cmdTime = command.substring(6).toInt();
         }
-        if (commanded == 1) {
-	    cmdcount++;
-	    server.println(command);
-	    server.println("HTTP/1.0 200 OK");
-	    server.println("Content-Length: 0");
-	    server.println();
+
+        if (commanded) {
+            if (!timeSet) {
+                Time.setTime(cmdTime);
+                timeSet = true;
+            }
+            else if (cmdTime > Time.now()) {
+                Time.setTime(cmdTime);
+            }
+            
+            if ( (cmdTime > Time.now()) || ( (Time.now()-cmdTime) < 5) ) {
+                cmdTimeValid = true;
+            }
+        }
+
+        if (commanded && cmdTimeValid) {
+
+            // reset the status timer for quick status collection
+            statusTimer.reset();
+            quickStatusRequested = true;
+            quickStatusSent = false;
+            statusTimer.changePeriod(quickStatusRate);
+
+            // 0: arm
+            if (cmdId == '0') {
+                cmdValid = arm(true);
+            }
+
+            // 1: disarm
+            else if (cmdId == '1') {
+                cmdValid = arm(false);
+            }
+
+            // 2: low
+            else if (cmdId == '2') {
+                cmdValid = rate(0);
+            }
+
+            // 3: high
+            else if (cmdId == '3') {
+                cmdValid = rate(1);
+            }
+
+            // 4: identify
+            else if (cmdId == '4') {
+                cmdValid = identify();
+            }
+
+            // 5: reset
+            else if (cmdId == '5') {
+                System.reset(); // maybe not great to do this?
+            }
+
+            // 6: ping
+            else if (cmdId == '6') {
+                cmdValid = ping();
+            }
+
+            // 9: fire
+            else if (cmdId == '9') {
+                cmdValid = fire(cmdChans);
+            }
+        }
+
+        if (commanded) {
+            lastCmdTime = millis();
+            cmdcount++;
+
+            server.println("CMD: " + command);
+            server.println("CMD_NO: " + String(cmdcount));
+            if (cmdTimeValid) {
+                server.println("ONTIME: True");
+            }
+            else {
+                server.println("ONTIME: False");
+            }
+
+            if (cmdValid) {
+                server.println("VALID: True");
+            }
+            else {
+                server.println("VALID: False");
+            }
+            server.println("HTTP/1.0 200 OK");
+            server.println("Content-Length: 0");
+            server.println();
+        }
+        else {
+            if (command != "") {
+                server.println(command);
+                server.println("HTTP/1.0 400 Bad Request");
+                server.println("Content-Length: 0");
+                server.println();
+            }
+        }
+    }
+    if ((millis() - lastCmdTime) > 30000) {
+        if (timeSet) {
+            System.reset();
         }
     }
 }
