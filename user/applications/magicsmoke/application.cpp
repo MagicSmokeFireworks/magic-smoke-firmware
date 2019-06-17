@@ -47,12 +47,12 @@ ApplicationWatchdog wd(60000, System.reset);
 #define armsense D7
 
 // define this firmware version (reported in status)
-String firmwareVersion = "2.1";
+String firmwareVersion = "3.0";
 
 // initialize tcp server/client info
 int serverPort = 8080;
-byte serverIP[] = {192, 168, 1, 99};
-String hostString = "Host: 192.168.1.99:8080";
+byte serverIP[] = {192, 168, 0, 100};
+String hostString = "Host: 192.168.0.100:8080";
 TCPClient client;
 TCPServer server = TCPServer(23);
 TCPClient serverClient;
@@ -326,7 +326,7 @@ void setup()
 
     WiFi.on();
     WiFi.clearCredentials();
-    WiFi.setCredentials("FBnet1","1smj-gln3-jet1");
+    WiFi.setCredentials("blarg","cantspellconvalescence");
     // get the wifi connected
     while (!WiFi.ready())
     {
@@ -578,21 +578,7 @@ void loop()
             lastCmdTime = millis();
             cmdcount++;
 
-            server.println("CMD: " + command);
-            server.println("CMD_NO: " + String(cmdcount));
-            if (cmdTimeValid) {
-                server.println("ONTIME: True");
-            }
-            else {
-                server.println("ONTIME: False");
-            }
-
-            if (cmdValid) {
-                server.println("VALID: True");
-            }
-            else {
-                server.println("VALID: False");
-            }
+            server.println(command+"."+String(cmdcount)+"."+String(cmdTimeValid)+"."+String(cmdValid));
             server.println("HTTP/1.0 200 OK");
             server.println("Content-Length: 0");
             server.println();
