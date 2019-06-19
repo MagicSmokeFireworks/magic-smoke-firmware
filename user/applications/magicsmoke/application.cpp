@@ -47,7 +47,7 @@ ApplicationWatchdog wd(60000, System.reset);
 #define armsense D7
 
 // define this firmware version (reported in status)
-String firmwareVersion = "3.0";
+String firmwareVersion = "3.1";
 
 // initialize tcp server/client info
 int serverPort = 8080;
@@ -166,6 +166,7 @@ void getStatus()
         client.println("BC: " + String(bootCount));
         client.println("PID: " + String(packetId));
         client.println("MICROS: " + String(micros()));
+    	client.println("PTIME: " + String(Time.now()));
         client.println("SW_ARM: " + String(swArm));
         if (hwArm == 0) {
             client.println("HW_ARM: DISARMED");
@@ -525,32 +526,40 @@ void loop()
             }
         }
 
-        if (commanded && cmdTimeValid) {
+        if (commanded) {
 
             // reset the status timer for quick status collection
-            statusTimer.reset();
-            quickStatusRequested = true;
-            quickStatusSent = false;
-            statusTimer.changePeriod(quickStatusRate);
+            if ( (cmdId != '2') && (cmdId != '3') ) {
+                statusTimer.reset();
+                quickStatusRequested = true;
+                quickStatusSent = false;
+                statusTimer.changePeriod(quickStatusRate);
+            }
 
             // 0: arm
             if (cmdId == '0') {
-                cmdValid = arm(true);
+                if (cmdTimeValid) {
+                    cmdValid = arm(true);
+                }
             }
 
-            // 1: disarm
+            // 1: disarm (even if command is late)
             else if (cmdId == '1') {
                 cmdValid = arm(false);
             }
 
             // 2: low
             else if (cmdId == '2') {
-                cmdValid = rate(0);
+                if (cmdTimeValid) {
+                    cmdValid = rate(0);
+                }
             }
 
             // 3: high
             else if (cmdId == '3') {
-                cmdValid = rate(1);
+                if (cmdTimeValid) {
+                    cmdValid = rate(1);
+                }
             }
 
             // 4: identify
@@ -570,7 +579,9 @@ void loop()
 
             // 9: fire
             else if (cmdId == '9') {
-                cmdValid = fire(cmdChans);
+                if (cmdTimeValid) {
+                    cmdValid = fire(cmdChans);
+                }
             }
         }
 
